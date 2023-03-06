@@ -192,9 +192,11 @@ public:
 		ourShader.Use();
 
 		GLint modelLoc = glGetUniformLocation(ourShader.Program, "model");
+		GLint viewLoc = glGetUniformLocation(ourShader.Program, "view");
 		
 		// Pass them to the shaders
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(this->ModelMatrix));
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(*this->ViewMatrix));
 
 		//Bind VAO
 		glBindVertexArray(this->VAO);
@@ -222,16 +224,17 @@ public:
 		GLint modelLoc = glGetUniformLocation(ourShader.Program, "model");
 		GLint viewLoc = glGetUniformLocation(ourShader.Program, "view");
         GLint projLoc = glGetUniformLocation(ourShader.Program, "projection");
+		GLint invProjLoc = glGetUniformLocation(ourShader.Program, "invProj");
 		
 
 		glm::mat4 projection;
-		
-       	projection = glm::perspective(45.0f, (GLfloat)1400 / (GLfloat)800, 0.1f, 100.0f);
-
+        projection = glm::perspective(45.0f, (GLfloat)1400 / (GLfloat)800, 0.1f, 100.0f);
+		glm::mat4 invProj = inverse(projection);
 		// Pass them to the shaders
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(this->ModelMatrix));
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(*this->ViewMatrix));
 		glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+		glUniformMatrix4fv(invProjLoc, 1, GL_FALSE, glm::value_ptr(invProj));
 		
 
 		//Bind VAO
@@ -287,3 +290,4 @@ public:
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 };
+
