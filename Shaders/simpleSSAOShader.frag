@@ -61,7 +61,7 @@ void main()
 
 
     vec4 sceneColor = texture(sceneTexture, TexCoord);
-    float mydepth = texture(DepthTexture, TexCoord).z;
-    gl_FragColor = vec4(1,1,1,1) * mydepth;
-    //gl_FragColor = sceneColor;
+    //float mydepth = texture(DepthTexture, TexCoord).z;
+    //gl_FragColor = vec4(1,1,1,1) * mydepth;
+    gl_FragColor = sceneColor;
 }
