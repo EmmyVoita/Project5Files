@@ -72,12 +72,7 @@ SSAOPassClass* ssaoPass;
 ShadowPassClass* shadowPass;
 
 
-
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Function to init Window
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
 void initWindow()
 {
     // Init GLFW
@@ -110,29 +105,16 @@ void initWindow()
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Function to init Camera (view matrix)
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
 void initCamera()
-{
-	//camPosition = glm::vec3(0.f, 6.f, 1.0f);
-	//worldUp = glm::vec3(0.f, 1.f, 0.f);
-	//camFront = glm::vec3(0.f, -1.f, -1.f);
-	
+{	
 	camera = new Camera(glm::vec3(0.f, 6.f, 9.f), glm::vec3(0.f, 0.f, 1.f), glm::vec3(0.f, 1.f, 0.f));
 	
 	ViewMatrix = glm::mat4(1.f);
 	ViewMatrix = camera->getViewMatrix();
 }
 
-
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Keyboard inputs
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
 void updateKeyboardInput()
 {
 	//Camera
@@ -162,13 +144,7 @@ void updateKeyboardInput()
 	}
 }
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Time management
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
-
 void updateDt()
 {
 	curTime = static_cast<float>(glfwGetTime());
@@ -176,13 +152,7 @@ void updateDt()
 	lastTime = curTime;
 }
 
-
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Mouse Input
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
 void updateMouseInput()
 {
 	glfwGetCursorPos(window, &mouseX, &mouseY);
@@ -209,12 +179,7 @@ void updateMouseInput()
 	}*/
 }
 
-
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Update all inputs
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
 void updateInput()
 {
 	glfwPollEvents();
@@ -224,12 +189,7 @@ void updateInput()
 	camera->updateInput(dt, -1, mouseOffsetX, mouseOffsetY);
 }
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------
 // Update ViewMatrix, pointlight
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
-
 void updateUniforms(MyModelClass* model, vector<PointLight*> &pointLights, Shader2 &ourShader)
 {
 
@@ -251,16 +211,74 @@ void updateUniforms(MyModelClass* model, vector<PointLight*> &pointLights, Shade
 
 }
 
+// Function to render screen-sized quad
+void renderScreenQuad(Shader2* shader, unsigned int sceneTexture, unsigned int ssaoTexture)
+{
+	
+    // Create vertices for the screen-sized quad
+    GLfloat quadVertices[] = {
+        // Positions        // Texture Coords
+        -1.0f,  1.0f,  0.0f,  0.0f, 1.0f,
+        -1.0f, -1.0f,  0.0f,  0.0f, 0.0f,
+         1.0f,  1.0f,  0.0f,  1.0f, 1.0f,
+         1.0f, -1.0f,  0.0f,  1.0f, 0.0f,
+    };
 
-//-----------------------------------------------------------------------------------------------------------------------------------------------
+	GLuint indices[] = { 0, 1, 2, 1, 3, 2 };
+
+    // Create VBO, VAO and EBO
+    GLuint VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * 6, indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+
+    // Set texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, sceneTexture);
+
+	glActiveTexture(GL_TEXTURE0 + 1); // activate texture unit 1
+	glBindTexture(GL_TEXTURE_2D, ssaoTexture); // bind the depth map texture to unit 1
+	
+	GLint projLoc = glGetUniformLocation(shader->Program, "ProjectionMatrix");
+	glm::mat4 projection;
+    projection = glm::perspective(45.0f, (GLfloat)1400 / (GLfloat)800, 0.1f, 100.0f);
+	glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+
+    // Draw quad
+    shader->Use();
+    glUniform1i(glGetUniformLocation(shader->Program, "sceneTexture"), 0);
+	glUniform1i(glGetUniformLocation(shader->Program, "DepthTexture"), 1);
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    // Delete VBO, VAO and EBO
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    glDeleteVertexArrays(1, &VAO);
+}
+
+
 // Main Function
-//-----------------------------------------------------------------------------------------------------------------------------------------------
-
-
 int main()
 {
-    
-    
     //Shaders
     vector<Shader2*> shaders;
     
@@ -282,6 +300,7 @@ int main()
     // Build and compile our shader program
     shaders.push_back(new Shader2("Shaders/BaseVertexShader.vs", "Shaders/BaseFragmentShader.frag"));
     shaders.push_back(new Shader2("Shaders/BaseVertexShader.vs", "Shaders/AdvancedFragmentShader.frag"));
+	shaders.push_back(new Shader2("Shaders/renderScreenToQuad.vs", "Shaders/simpleSSAOShader.frag"));
 
 
     initCamera();
@@ -369,30 +388,55 @@ int main()
 	}
 
 	
-    // Game loop
+	unsigned int mainFrameBuffer;
+	unsigned int textureID;
+    unsigned int depthBuffer;
+
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glGenFramebuffers(1, &mainFrameBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, mainFrameBuffer);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureID, 0);
+	
+    glGenRenderbuffers(1, &depthBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, WIDTH, HEIGHT);
+
+    // Attach the depth buffer to the framebuffer
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+    // Loop until the user closes the window
     while (!glfwWindowShouldClose(window))
     {
 	
-        //update functions
+        // Update the time and input
         updateDt();
        	updateInput();
 
-        //Color buffer
+        // Clear Buffers
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-		//glEnable(GL_CULL_FACE);
-
-		//render the depth texture from the camera to the depthMap
+		 // Pass 1: Render the shadow map
 		shadowPass->render();
+
+		// Pass 2: Render the SSAO texture
 		ssaoPass->render();
 
-		//glDisable(GL_CULL_FACE);
-		//glCullFace(GL_BACK);
-
-
 		updateUniforms(myModels[0],pointLights, *shaders[0]);
-		//Render the model using x shader. 
+
+		// Pass 3: Render everything to a texture
+        glBindFramebuffer(GL_FRAMEBUFFER, mainFrameBuffer);
+        glViewport(0, 0, WIDTH, HEIGHT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 		myModels[0]->render(*shaders[0], false);
 
 		updateUniforms(myModels[1],pointLights, *shaders[0]);
@@ -416,12 +460,17 @@ int main()
 		updateUniforms(myModels[7],pointLights, *shaders[0]);
 		myModels[7]->render(*shaders[0], false);
 		
+		// Unbind the FBO and texture
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+
+		// Pass 4: Render everything to a quad on the screen
+		renderScreenQuad(shaders[2], textureID, ssaoPass->getDepthMap2());
+
 		// Swap the screen buffers
 		glfwSwapBuffers(window);
 
-		
-		//glFlush();
-			
 		glBindVertexArray(0);
 		glUseProgram(0);
 		glActiveTexture(0);
@@ -452,12 +501,11 @@ int main()
     return 0;
 }
 
-
-
 // Is called whenever a key is pressed/released via GLFW
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 }
+
 
